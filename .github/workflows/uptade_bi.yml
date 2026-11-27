@@ -1,0 +1,42 @@
+name: Atualizar planilha do BI Frota
+
+on:
+  repository_dispatch:
+    types: [planilha-atualizada]   # disparado pelo Power Automate
+  schedule:
+    - cron: "0 */2 * * *"          # a cada 2 horas (segurança)
+  workflow_dispatch:                # botão "Run workflow" manual
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-bi
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baixar planilha do Dropbox
+        env:
+          DROPBOX_URL: ${{ secrets.DROPBOX_URL }}
+        run: python scripts/update_bi.py
+
+      - name: Commitar planilha.xlsx
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898237+github-actions[bot]@users.noreply.github.com"
+          git add planilha.xlsx
+          if git diff --cached --quiet; then
+            echo "Nada para commitar."
+          else
+            git commit -m "planilha atualizada - $(TZ=America/Cuiaba date '+%d/%m/%Y %H:%M')"
+            git push
+          fi
